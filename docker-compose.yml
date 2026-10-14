@@ -28,14 +28,13 @@ services:
     command: server standalone
 
     volumes:
-      - kestra-data:/app/storage
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /tmp/kestra-wd:/tmp/kestra-wd
+  - kestra-data:/app/storage
+  - /tmp/kestra-wd:/tmp/kestra-wd
 
-      # Dossiers BottleNeck
-      - ./data:/app/data
-      - ./scripts:/app/scripts
-      - ./output:/app/output
+  # Dossiers BottleNeck
+  - ./data:/app/data
+  - ./scripts:/app/scripts
+  - ./output:/app/output
 
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD dans .env}
