@@ -1,0 +1,159 @@
+﻿id: bottleneck_workflow
+namespace: bottleneck.data
+
+description: >
+  Pipeline mensuel BottleNeck avec traitements DuckDB,
+  calcul du z-score, exports et tests de qualit├® int├®gr├®s.
+
+tasks:
+
+  # 1 - Traitements SQL DuckDB
+  - id: transformations_duckdb
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+
+    beforeCommands:
+      - /usr/bin/python3 -m pip install duckdb pandas openpyxl xlwt --break-system-packages --root-user-action=ignore
+
+    commands:
+      - /usr/bin/python3 -c "import duckdb; print('DuckDB version :', duckdb.__version__)"
+      - cd /app && /usr/bin/python3 /app/scripts/00_run_sql.py
+
+    retry:
+      type: constant
+      maxAttempts: 3
+      interval: PT10S
+
+  # 2 - Test ERP
+  - id: test_erp
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd /app && /usr/bin/python3 /app/scripts/08_tests.py erp
+
+  # 3 - Test Liaison
+  - id: test_liaison
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd /app && /usr/bin/python3 /app/scripts/08_tests.py liaison
+
+  # 4 - Test nettoyage WEB
+  - id: test_web_cleaning
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd /app && /usr/bin/python3 /app/scripts/08_tests.py web_cleaning
+
+  # 5 - Test d├®doublonnage WEB
+  - id: test_web_dedup
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd /app && /usr/bin/python3 /app/scripts/08_tests.py web_dedup
+
+  # 6 - Test coh├®rence jointure
+  - id: test_jointure
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd /app && /usr/bin/python3 /app/scripts/08_tests.py join
+
+  # 7 - Test chiffre d'affaires
+  - id: test_chiffre_affaires
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd /app && /usr/bin/python3 /app/scripts/08_tests.py revenue
+
+  # 8 - Calcul du Z-score
+  - id: calcul_zscore
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd /app && /usr/bin/python3 /app/scripts/06_zscore.py
+
+    retry:
+      type: constant
+      maxAttempts: 3
+      interval: PT10S
+
+  # 9 - Test du Z-score
+  - id: test_zscore
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd /app && /usr/bin/python3 /app/scripts/08_tests.py zscore
+
+  # 10 - Contr├┤le des extractions Premium / Ordinaires
+  - id: controle_extractions
+    type: io.kestra.plugin.core.flow.Parallel
+    tasks:
+
+      - id: controle_premium
+        type: io.kestra.plugin.scripts.shell.Commands
+        taskRunner:
+          type: io.kestra.plugin.core.runner.Process
+        commands:
+          - test -s /app/output/vins_premium.csv
+          - echo "Extraction vins premium OK"
+
+      - id: controle_ordinaires
+        type: io.kestra.plugin.scripts.shell.Commands
+        taskRunner:
+          type: io.kestra.plugin.core.runner.Process
+        commands:
+          - test -s /app/output/vins_ordinaires.csv
+          - echo "Extraction vins ordinaires OK"
+
+  # 11 - Export du rapport CA
+  - id: export_chiffre_affaires
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd /app && /usr/bin/python3 /app/scripts/07_export_revenue.py
+
+    retry:
+      type: constant
+      maxAttempts: 3
+      interval: PT10S
+
+  # 12 - Contr├┤le final
+  - id: controle_final
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - test -s /app/output/rapport_chiffre_affaires.xls
+      - test -s /app/output/vins_premium.csv
+      - test -s /app/output/vins_ordinaires.csv
+      - echo "Les trois fichiers finaux ont ├®t├® g├®n├®r├®s."
+
+  - id: fin_workflow
+    type: io.kestra.plugin.core.log.Log
+    message: >
+      Pipeline BottleNeck termin├® avec succ├¿s et tous les tests de qualit├® ont ├®t├® valid├®s.
+
+errors:
+  - id: log_erreur
+    type: io.kestra.plugin.core.log.Log
+    level: ERROR
+    message: >
+      Le pipeline BottleNeck a ├®chou├®.
+      Un traitement ou un test de qualit├® n'a pas ├®t├® valid├®.
+
+triggers:
+  - id: execution_mensuelle
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 9 15 * *"
+    timezone: Europe/Paris
