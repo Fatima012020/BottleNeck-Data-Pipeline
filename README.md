@@ -122,19 +122,57 @@ Les fichiers sources ne sont pas distribués dans le dépôt public.
 
 ### 4. Configurer Docker
 
-Créer un fichier `.env` à partir de `.env.example` et renseigner un mot de passe PostgreSQL local.
+Le projet utilise une image Docker personnalisée de Kestra, construite à partir du `Dockerfile`. Cette image intègre les dépendances Python nécessaires aux traitements.
 
-Sous PowerShell :
+Créer un fichier `.env` à partir du modèle fourni :
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Modifier ensuite la valeur `POSTGRES_PASSWORD` dans `.env`.
+Renseigner les variables d'environnement suivantes dans `.env` :
 
-Ne jamais publier le fichier `.env`.
+```dotenv
+POSTGRES_PASSWORD=VOTRE_MOT_DE_PASSE_POSTGRES
+KESTRA_ADMIN_EMAIL=VOTRE_ADRESSE_EMAIL
+KESTRA_ADMIN_PASSWORD=VOTRE_MOT_DE_PASSE_KESTRA
+```
 
-### 5. Démarrer les services
+Utiliser des mots de passe robustes et ne jamais publier le fichier `.env`.
+
+### 5. Construire et démarrer les services
+
+Vérifier la configuration :
+
+```powershell
+docker compose config --quiet
+```
+
+Construire l'image Kestra personnalisée :
+
+```powershell
+docker compose build kestra
+```
+
+Démarrer les services :
+
+```powershell
+docker compose up -d
+```
+
+Vérifier leur état :
+
+```powershell
+docker compose ps
+```
+
+L'interface Kestra est accessible à l'adresse :
+
+http://localhost:8080
+
+Se connecter avec les identifiants définis dans le fichier `.env`.
+
+### 6. Importer le workflow Kestra
 
 ```bash
 docker compose config --quiet
@@ -145,16 +183,6 @@ docker compose ps
 L'interface Kestra est accessible à l'adresse :
 
 http://localhost:8080
-
-### 6. Importer le workflow Kestra
-
-Dans l'interface Kestra, importer le fichier :
-
-`flows/bottleneck_workflow.yml`
-
-Le workflow appartient au namespace `bottleneck.data` et porte l'identifiant `bottleneck_workflow`.
-
-Lancer ensuite une exécution manuelle depuis Kestra.
 
 ## Exécution des traitements
 
@@ -227,13 +255,15 @@ La solution intègre plusieurs mécanismes de contrôle :
 - Relances automatiques sur certaines tâches.
 - Journalisation des erreurs dans Kestra.
 
-Une exécution du workflow a été confirmée avec l'état `SUCCESS` en environ 9,5 secondes.
+La dernière exécution vérifiée du workflow Kestra s'est terminée avec l'état SUCCESS : 15 tâches réussies sur 15, en 7,91 secondes.
 
 ## Sécurité et limites
 
 Les fichiers sources, les résultats générés, la base DuckDB locale et les secrets d'environnement sont exclus du dépôt GitHub.
 
-Le workflow utilise actuellement un exécuteur de processus local et installe certaines dépendances Python au démarrage des traitements. Pour une utilisation en production, il serait préférable de disposer d'une image d'exécution versionnée, de limiter les privilèges des conteneurs et d'utiliser une gestion dédiée des secrets.
+Le projet utilise une image Docker Kestra personnalisée, construite à partir d'un Dockerfile et intégrant les dépendances Python avec des versions définies. Le conteneur Kestra s'exécute avec l'utilisateur non privilégié kestra, et le montage du socket Docker a été supprimé.
+Les identifiants PostgreSQL et Kestra sont configurés à l'aide de variables d'environnement. Le fichier .env, les données sources, les résultats générés et les sauvegardes locales sont exclus du dépôt GitHub.
+Le fonctionnement nécessite Docker Desktop, les fichiers sources BottleNeck et une configuration locale adaptée. Cette solution constitue un projet de formation et non une infrastructure de production.
 
 Le fonctionnement dépend également de la disponibilité des fichiers sources et de la bonne configuration de Kestra et PostgreSQL.
 

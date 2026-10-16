@@ -13,9 +13,6 @@ tasks:
     taskRunner:
       type: io.kestra.plugin.core.runner.Process
 
-    beforeCommands:
-      - /usr/bin/python3 -m pip install duckdb pandas openpyxl xlwt --break-system-packages --root-user-action=ignore
-
     commands:
       - /usr/bin/python3 -c "import duckdb; print('DuckDB version :', duckdb.__version__)"
       - cd /app && /usr/bin/python3 /app/scripts/00_run_sql.py

@@ -21,13 +21,17 @@ services:
       retries: 10
 
   kestra:
-    image: kestra/kestra:latest
-    pull_policy: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bottleneck-kestra:1.0
+    pull_policy: build
     stop_grace_period: 6m
-    user: "root"
+    user: "kestra"
     command: server standalone
 
     volumes:
+<<<<<<< HEAD
   - kestra-data:/app/storage
   - /tmp/kestra-wd:/tmp/kestra-wd
 
@@ -35,6 +39,15 @@ services:
   - ./data:/app/data
   - ./scripts:/app/scripts
   - ./output:/app/output
+=======
+    - kestra-data:/app/storage
+    - /tmp/kestra-wd:/tmp/kestra-wd
+
+    # Dossiers BottleNeck
+    - ./data:/app/data
+    - ./scripts:/app/scripts
+    - ./output:/app/output
+>>>>>>> df24967 (Amelioration du pipeline BottleNeck : Docker, Kestra et securite)
 
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD dans .env}
@@ -47,6 +60,11 @@ services:
             password: ${POSTGRES_PASSWORD}
 
         kestra:
+          server:
+            basic-auth:
+              username: ${KESTRA_ADMIN_EMAIL}
+              password: ${KESTRA_ADMIN_PASSWORD}
+
           repository:
             type: postgres
 
@@ -61,8 +79,6 @@ services:
           tasks:
             tmp-dir:
               path: /tmp/kestra-wd/tmp
-
-          url: http://localhost:8080/
 
     ports:
       - "8080:8080"

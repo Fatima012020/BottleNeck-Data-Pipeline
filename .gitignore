@@ -17,3 +17,6 @@ bottleneck_workflow_ancien.yml
 *backup*.yml
 .DS_Store
 Thumbs.db
+
+# Sauvegardes locales PostgreSQL et Kestra
+backups/
